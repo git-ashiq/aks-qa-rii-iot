@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: qa-rii-iot-ingress
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    kubernetes.io/ingress.allow-http: "false"
+    appgw.ingress.kubernetes.io/appgw-ssl-certificate: "appgw-ssl-certificate"
+    # TODO: modify delivery containers to start listening https instead (dont forget
+    # probes as they override the appgw probes cfg). Then uncomment the following
+    # annotations to have e2e TLS: https://github.com/Azure/application-gateway-kubernetes-ingress/issues/1048
+    # appgw.ingress.kubernetes.io/ssl-redirect: "false"
+    # appgw.ingress.kubernetes.io/backend-protocol: "https"
+    # appgw.ingress.kubernetes.io/backend-hostname: "shipping.aks-agic.fabrikam.com"
+    # appgw.ingress.kubernetes.io/hostname-extension: "*.aks-agic.fabrikam.com"
+    # appgw.ingress.kubernetes.io/appgw-trusted-root-certificate: "root-cert-wildcard-aks-ingress-fabrikam"
+spec:
+  tls:
+  - hosts:
+    - qa.rii-iot.com
+    secretName: ingress-appgw-sa-token-fg8lr
+  rules:
+  - host: qa.rii-iot.com
+    http:
+      paths:
+        - backend:
+            service:
+              name: backend-service
+              port:
+                number: 80
+          path: /services(.*)
+          pathType: Prefix

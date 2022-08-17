@@ -1,0 +1,64 @@
+#  ------------------------------------------------------------
+#   Copyright (c) Microsoft Corporation.  All rights reserved.
+#   Licensed under the MIT License (MIT). See License.txt in the repo root for license information.
+#  ------------------------------------------------------------
+
+###################################################################################################
+# ingress
+###################################################################################################
+{{- $svcversion := .Chart.AppVersion | replace "." "" }}
+{{- $appversion := .Chart.AppVersion }}
+{{- $defaultversionedpath := printf "/%s/" $appversion }}
+{{- $relname := .Release.Name }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $relname }}-ingress
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    kubernetes.io/ingress.allow-http: "false"
+    appgw.ingress.kubernetes.io/appgw-ssl-certificate: "appgw-ssl-certificate"
+    # TODO: modify ingestion container to start listening https instead (dont forget
+    # probes as they override the appgw probes cfg). Then uncomment the following
+    # annotations to have e2e TLS: https://github.com/Azure/application-gateway-kubernetes-ingress/issues/1048
+    # appgw.ingress.kubernetes.io/ssl-redirect: "false"
+    # appgw.ingress.kubernetes.io/backend-protocol: "https"
+    # appgw.ingress.kubernetes.io/backend-hostname: "shipping.aks-agic.fabrikam.com"
+    # appgw.ingress.kubernetes.io/hostname-extension: "*.aks-agic.fabrikam.com"
+    # appgw.ingress.kubernetes.io/appgw-trusted-root-certificate: "root-cert-wildcard-aks-ingress-fabrikam"
+spec:
+  tls:
+  {{- range .Values.ingress.hosts }}
+  - hosts:
+    - {{ .name }}
+  {{- if .tlsSecretName }}
+    secretName: {{ $relname }}-{{ .tlsSecretName }}
+  {{- end }}
+  {{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+  - host: {{ .name }}
+    http:
+      paths:
+      {{ if .path }}
+      - path: {{ printf "%s/%s/" .path $appversion }}api/deliveryrequests*
+        pathType: Prefix
+      {{ else }}
+      - path: {{ $defaultversionedpath }}api/deliveryrequests*
+        pathType: Prefix
+      {{ end }}
+        backend:
+          service:
+            name: "{{ .serviceName }}-{{ $svcversion }}"
+            port:
+              number: 80
+      {{ if (eq $appversion "v0.1.0") }}
+      - path: {{ default "/" .path }}api/deliveryrequests*
+        pathType: Prefix
+        backend:
+          service:
+            name: "{{ .serviceName }}"
+            port:
+              number: 80
+      {{ end }}
+  {{ end }}

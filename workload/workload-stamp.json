@@ -1,0 +1,159 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "0.0.0.3",
+    "variables": {
+        "acrName": "riiqaacr",
+        "workflowIdName": "qa-rii-iot-wf",
+        "nestedACRDeploymentName": "[concat(resourceGroup().name, '-acr-deployment')]"
+
+    },
+    "parameters": {
+        "location": {
+            "defaultValue": "westus2",
+            "type": "string",
+            "allowedValues": [
+                "australiaeast",
+                "canadacentral",
+                "centralus",
+                "eastus",
+                "eastus2",
+                "westus2",
+                "francecentral",
+                "germanywestcentral",
+                "northeurope",
+                "southafricanorth",
+                "southcentralus",
+                "uksouth",
+                "westeurope",
+                "japaneast",
+                "southeastasia"
+            ],
+            "metadata": {
+                "description": "ACR region."
+            }
+        },
+        "geoRedundancyLocation": {
+            "defaultValue": "westcentralus",
+            "type": "string",
+            "allowedValues": [
+                "australiasoutheast",
+                "canadaeast",
+                "eastus2",
+                "westus",
+                "centralus",
+                "westcentralus",
+                "francesouth",
+                "germanynorth",
+                "westeurope",
+                "ukwest",
+                "northeurope",
+                "japanwest",
+                "southafricawest",
+                "northcentralus",
+                "eastasia",
+                "eastus",
+                "westus2",
+                "francecentral",
+                "uksouth",
+                "japaneast",
+                "southeastasia"
+            ],
+            "metadata": {
+                "description": "For Azure resources that support native geo-redundancy, provide the location the redundant service will have its secondary. Should be different than the location parameter and ideally should be a paired region - https://docs.microsoft.com/en-us/azure/best-practices-availability-paired-regions. This region does not need to support availability zones."
+            }
+        },
+        "workflowPrincipalId": {
+            "type": "string"
+        },
+        "acrResourceGroupName": {
+            "type": "string",
+            "metadata": {
+                "description": "the resource group name of the Azure Container Registry"
+            }
+        }
+    },
+    "resources": [
+        {
+            "name": "[variables('nestedACRDeploymentName')]",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2018-05-01",
+            "dependsOn": [
+            ],
+            "resourceGroup": "[parameters('acrResourceGroupName')]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                        {
+                            "name": "[variables('acrName')]",
+                            "type": "Microsoft.ContainerRegistry/registries",
+                            "apiVersion": "2020-11-01-preview",
+                            "sku": {
+                                "name": "Premium",
+                                "tier": "Premium"
+                            },
+                            "location": "[resourceGroup().location]",
+                            "tags": {
+                                "displayName": "Container Registry"
+                            },
+                            "properties": {
+                                "adminUserEnabled": false,
+                                "networkRuleSet": {
+                                    "defaultAction": "Allow",
+                                    "virtualNetworkRules": [
+                                    ],
+                                    "ipRules": [
+                                    ]
+                                },
+                                "policies": {
+                                    "quarantinePolicy": {
+                                        "status": "disabled"
+                                    },
+                                    "trustPolicy": {
+                                        "type": "Notary",
+                                        "status": "disabled"
+                                    },
+                                    "retentionPolicy": {
+                                        "days": 15,
+                                        "status": "enabled"
+                                    }
+                                }
+                            },
+                            "resources": [
+                                {
+                                    "type": "replications",
+                                    "apiVersion": "2019-05-01",
+                                    "name": "[parameters('geoRedundancyLocation')]",
+                                    "location": "[parameters('geoRedundancyLocation')]",
+                                    "dependsOn": [
+                                        "[variables('acrName')]"
+                                    ],
+                                    "properties": {
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "outputs": {
+                        "acrId": {
+                            "value": "[resourceId('Microsoft.ContainerRegistry/registries', variables('acrName'))]",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "acrId": {
+            "value": "[resourceId('Microsoft.ContainerRegistry/registries', variables('acrName'))]",
+            "type": "string"
+        },
+        "acrName": {
+            "value": "[variables('acrName')]",
+            "type": "string"
+        }
+    }
+}
